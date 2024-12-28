@@ -1,12 +1,10 @@
-﻿using Azure.Core;
+﻿using Dapr.Client;
 using CommandService.Data;
 using CommandService.Models;
 using CommandService.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace CommandService.Controllers
 {
@@ -15,18 +13,31 @@ namespace CommandService.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly OrderService _orderService;
+        private readonly DaprClient _daprClient;  // Injecter DaprClient
 
-        public OrdersController(OrderService orderService)
+        public OrdersController(OrderService orderService, DaprClient daprClient)
         {
             _orderService = orderService;
+            _daprClient = daprClient;  // Initialiser DaprClient
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
         {
+            // Créer la commande dans le service
             var order = await _orderService.CreateOrderAsync(request.CustomerId, request.ProductId, request.Quantity);
 
+            // Préparer le message à publier via Dapr
+            var message = new
+            {
+                ProductId = request.ProductId,
+                Quantity = request.Quantity
+            };
 
+            // Publier le message dans le sujet "product-stock-decreased"
+            await _daprClient.PublishEventAsync("pubsub", "product-stock-decreased", message);
+
+            // Retourner la réponse avec le nouvel ID de commande
             return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, order);
         }
 
@@ -34,7 +45,6 @@ namespace CommandService.Controllers
         public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] string status)
         {
             await _orderService.UpdateOrderStatusAsync(id, status);
-
             return NoContent();
         }
 

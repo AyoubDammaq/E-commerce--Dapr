@@ -16,6 +16,10 @@ const daprServer = new DaprServer("127.0.0.1", 3500, "127.0.0.1", port);
 
 // Middleware pour traiter les données JSON
 app.use(express.json());
+ 
+// Créer un client Dapr
+const daprClient = new DaprClient();
+
 
 // Connexion à la base de données MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -28,6 +32,22 @@ mongoose.connect(process.env.MONGO_URI, {
   process.exit(1); // Arrêter l'application si MongoDB échoue
 });
 
+// Abonnement au message 'order-placed'
+daprServer.subscribe('product-pubsub', 'order-placed', async (data) => {
+  const order = JSON.parse(data);
+
+  console.log(`Commande reçue : Produit ID ${order.ProductId}, Quantité ${order.Quantity}`);
+
+  // Mettez à jour la quantité du produit en fonction de la commande
+  const product = await Product.findById(order.ProductId);
+  if (product) {
+    product.quantity -= order.Quantity; // Diminuer la quantité du produit
+    await product.save();
+    console.log(`Produit ${product.name} mis à jour, nouvelle quantité : ${product.quantity}`);
+  } else {
+    console.log('Produit non trouvé');
+  }
+});
 // Routes
 app.use('/products', productRoutes);
 
