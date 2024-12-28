@@ -27,10 +27,15 @@ app.post('/product-pubsub/order-placed', async (req, res) => {
 
     const product = await Product.findById(order.ProductId);
     if (product) {
-      product.quantity -= order.Quantity;
-      await product.save();
-      console.log(`Produit ${product.name} mis à jour, nouvelle quantité : ${product.quantity}`);
-      res.status(200).send('Product updated');
+      if (order.Quantity <= product.quantity) {
+        product.quantity -= order.Quantity;
+        await product.save();
+        console.log(`Produit ${product.name} mis à jour, nouvelle quantité : ${product.quantity}`);
+        res.status(200).send('Product updated');
+      } else {
+        console.log('Quantité commandée supérieure à la quantité en stock');
+        res.status(400).send('Insufficient stock');
+      }
     } else {
       console.log('Produit non trouvé');
       res.status(404).send('Product not found');
