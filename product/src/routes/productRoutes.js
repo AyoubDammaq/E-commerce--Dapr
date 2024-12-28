@@ -1,7 +1,7 @@
 // src/routes/productRoutes.js
 const express = require('express');
 const router = express.Router();
-const { createProduct, getAllProducts, deleteProduct } = require('../controllers/productController');
+const { createProduct, getAllProducts, deleteProduct, updateProductDetails } = require('../controllers/productController');
 
 // Route pour créer un produit
 router.post('/', createProduct);
@@ -10,5 +10,8 @@ router.post('/', createProduct);
 router.get('/', getAllProducts);
 
 router.delete('/:id', deleteProduct);
+
+// Route pour mettre à jour les détails d'un produit
+router.put('/:id', updateProductDetails);
 
 module.exports = router;

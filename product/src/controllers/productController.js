@@ -1,3 +1,4 @@
+// src/controllers/productController.js
 const Product = require('../models/productModel');
 
 // Créer un produit
@@ -36,4 +37,24 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-module.exports = { createProduct, getAllProducts, deleteProduct };
+
+// Mettre à jour les détails d'un produit
+const updateProductDetails = async (req, res) => {
+  const productId = req.params.id;
+  const updatedData = req.body;
+
+  try {
+    // Trouver le produit par ID et mettre à jour
+    const updatedProduct = await Product.findByIdAndUpdate(productId, updatedData, { new: true });
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: 'Produit non trouvé' });
+    }
+
+    res.status(200).json(updatedProduct);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la mise à jour du produit', error: error.message });
+  }
+};
+
+module.exports = { createProduct, getAllProducts, deleteProduct, updateProductDetails };

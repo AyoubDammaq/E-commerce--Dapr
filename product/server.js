@@ -1,69 +1,68 @@
-// server.js
+// src/server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const productRoutes = require('./src/routes/productRoutes');
-const { DaprServer } = require('@dapr/dapr');
+const axios = require('axios');
+const connectDB = require('./src/config/database');
+const Product = require('./src/models/productModel');
 
-// Charger les variables d'environnement
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3003;
+const daprPort = process.env.DAPR_PORT || 3502;
+const stateUrl = `http://localhost:${daprPort}/v1.0/state/statestore`;
 
-// Configurer Dapr
-const daprServer = new DaprServer("127.0.0.1", 3500, "127.0.0.1", port);
-
-// Middleware pour traiter les données JSON
 app.use(express.json());
- 
-// Créer un client Dapr
-const daprClient = new DaprClient();
 
+// Connecter MongoDB
+connectDB();
 
-// Connexion à la base de données MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('MongoDB connected');
-}).catch((err) => {
-  console.error('MongoDB connection error:', err);
-  process.exit(1); // Arrêter l'application si MongoDB échoue
-});
+// Abonnement Dapr pour traiter les commandes
+app.post('/product-pubsub/order-placed', async (req, res) => {
+  const order = req.body;
+  try {
+    console.log(`Commande reçue : Produit ID ${order.ProductId}, Quantité ${order.Quantity}`);
 
-// Abonnement au message 'order-placed'
-daprServer.subscribe('product-pubsub', 'order-placed', async (data) => {
-  const order = JSON.parse(data);
-
-  console.log(`Commande reçue : Produit ID ${order.ProductId}, Quantité ${order.Quantity}`);
-
-  // Mettez à jour la quantité du produit en fonction de la commande
-  const product = await Product.findById(order.ProductId);
-  if (product) {
-    product.quantity -= order.Quantity; // Diminuer la quantité du produit
-    await product.save();
-    console.log(`Produit ${product.name} mis à jour, nouvelle quantité : ${product.quantity}`);
-  } else {
-    console.log('Produit non trouvé');
+    const product = await Product.findById(order.ProductId);
+    if (product) {
+      product.quantity -= order.Quantity;
+      await product.save();
+      console.log(`Produit ${product.name} mis à jour, nouvelle quantité : ${product.quantity}`);
+      res.status(200).send('Product updated');
+    } else {
+      console.log('Produit non trouvé');
+      res.status(404).send('Product not found');
+    }
+  } catch (error) {
+    console.error('Erreur lors du traitement de la commande :', error);
+    res.status(500).send('Error processing order');
   }
 });
-// Routes
-app.use('/products', productRoutes);
 
-// Démarrer le serveur Dapr
-daprServer.start().then(() => {
-  console.log('Dapr sidecar connected');
-  // Démarrer le serveur Express une fois que Dapr est prêt
-  app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
-}).catch((err) => {
-  console.error('Error starting Dapr server:', err);
-  process.exit(1);
+// Point de découverte Dapr
+app.get('/dapr/subscribe', (req, res) => {
+  res.json([
+    {
+      pubsubname: 'product-pubsub',
+      topic: 'order-placed',
+      route: '/product-pubsub/order-placed',
+    },
+  ]);
 });
 
-// Route par défaut
-app.get('/', (req, res) => {
-  res.send('Microservice Product fonctionne avec Dapr');
+// Routes produits
+app.use('/products', productRoutes);
+
+// Démarrer le serveur Express
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+
+// Fermeture propre
+process.on('SIGINT', async () => {
+  console.log('Shutting down...');
+  await mongoose.disconnect();
+  process.exit(0);
 });
