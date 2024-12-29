@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: user
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      containers:
+      - name: user-container
+        image: abiralimi/mon-microservice:v1   # L'image Docker que tu viens de pousser
+        ports:
+        - containerPort: 3003   # Le port de ton application (assure-toi qu'il est correct)

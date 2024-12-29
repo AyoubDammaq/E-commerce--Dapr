@@ -1,17 +1,15 @@
-# Step 1: Use an official Java runtime as a base image
-FROM openjdk:22-jdk-slim AS base
+# Étape 1 : Utiliser une image de base Java
+FROM openjdk:17-jdk-slim as builder
 
-# Step 2: Set environment variables
-ENV JAVA_OPTS="-Xms512m -Xmx1024m"
-
-# Step 3: Set the working directory in the container
+# Étape 2 : Créer un répertoire pour l'application
+RUN mkdir /app
 WORKDIR /app
 
-# Step 4: Copy the .jar file into the container
-COPY ./target/springboot-security-jwt-*.jar app.jar
+# Étape 3 : Copier le fichier jar de l'application dans le conteneur
+COPY target/user-service.jar /app/user-service.jar
 
-# Step 5: Expose the port your app will run on (default Spring Boot port is 8080)
-EXPOSE 5002
+# Étape 4 : Exposer le port sur lequel l'application Spring Boot écoute
+EXPOSE 8080
 
-# Step 6: Command to run the application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Étape 5 : Démarrer l'application Spring Boot
+CMD ["java", "-jar", "user-service.jar"]
