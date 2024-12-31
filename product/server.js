@@ -1,4 +1,3 @@
-// src/server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -6,6 +5,7 @@ const productRoutes = require('./src/routes/productRoutes');
 const axios = require('axios');
 const connectDB = require('./src/config/database');
 const Product = require('./src/models/productModel');
+const client = require('prom-client');
 
 dotenv.config();
 
@@ -13,6 +13,31 @@ const app = express();
 const port = process.env.PORT || 3003;
 const daprPort = process.env.DAPR_PORT || 3502;
 const stateUrl = `http://localhost:${daprPort}/v1.0/state/statestore`;
+
+// Initialiser le registre Prometheus
+const register = new client.Registry();
+
+// Collecte des métriques par défaut
+client.collectDefaultMetrics({ register });
+
+// Exemple de compteur pour les requêtes HTTP
+const httpRequestCounter = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Nombre total de requêtes HTTP',
+  labelNames: ['method', 'route', 'status'],
+});
+
+// Middleware pour enregistrer les métriques des requêtes
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    httpRequestCounter.inc({
+      method: req.method,
+      route: req.route ? req.route.path : req.path,
+      status: res.statusCode,
+    });
+  });
+  next();
+});
 
 app.use(express.json());
 
@@ -59,6 +84,12 @@ app.get('/dapr/subscribe', (req, res) => {
 
 // Routes produits
 app.use('/products', productRoutes);
+
+// Route pour exposer les métriques Prometheus
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 // Démarrer le serveur Express
 app.listen(port, () => {
