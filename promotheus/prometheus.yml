@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s  # Fréquence d'interrogation des services (par défaut : 15 secondes)
+
+scrape_configs:
+
+  - job_name: 'product-service'  # Nom du service
+    static_configs:
+      - targets: ['host.docker.internal:5003']  # Adresse et port du service Product
+
+  - job_name: 'command-service'  # Nom du service Command
+    static_configs:
+      - targets: ['host.docker.internal:5001']  # Adresse et port du service Command
+
+  - job_name: 'user-service'  # Nom du service User
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:5002']  # Adresse et port du service User
